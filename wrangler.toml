@@ -6,7 +6,7 @@ compatibility_date = "2026-06-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "liyog-notify-db"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"   # from `wrangler d1 create liyog-notify-db`
+database_id = "674b64f2-8848-4456-89c8-27024724fb86"   # from `wrangler d1 create liyog-notify-db`
 
 # ---- Queue (fan-out push sending, same pattern as your email Worker) ----
 [[queues.producers]]
