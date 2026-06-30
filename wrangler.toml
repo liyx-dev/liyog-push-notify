@@ -29,7 +29,7 @@ crons = ["*/10 * * * *"]
 [vars]
 VAPID_SUBJECT = "mailto:you@liyogworld.com.ng"     # contact required by the Web Push spec
 BLOG_FEED_URL = "https://liyogworld.com.ng/feeds/posts/default?alt=json&max-results=10"
-FEED_PAGE_URL = "https://liyogworld.com.ng/notifications"  # the in-web "What's new" page, see public/notification-feed.js
+FEED_PAGE_URL = "https://www.liyogworld.com.ng/notifications"  # the in-web "What's new" page, see public/notification-feed.js
 
 # ---- Secrets (never put these as plain vars — set with `wrangler secret put <NAME>`) ----
 # VAPID_PUBLIC_KEY    -> base64url, also handed to the browser client
