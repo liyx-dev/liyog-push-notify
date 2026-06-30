@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>What's New — Liyog World Global</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --gold:   #FFD700;
+      --orange: #FF7A00;
+      --blue:   #1877F2;
+      --green:  #28A428;
+      --black:  #0a0a0a;
+      --card:   #141414;
+      --card2:  #1c1c1c;
+      --text:   #f0f0f0;
+      --muted:  #888;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--black);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* ── Header ─────────────────────────────────────────── */
+    .lw-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 20px 18px 14px;
+      border-bottom: 1px solid #222;
+    }
+    .lw-header img {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    .lw-header-text h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: 16px;
+      font-weight: 800;
+      background: linear-gradient(90deg, var(--gold), var(--orange));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .lw-header-text p {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 1px;
+    }
+    .lw-close {
+      margin-left: auto;
+      background: #222;
+      border: none;
+      color: var(--muted);
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ── Hero card (first / highlighted post) ───────────── */
+    .lw-hero {
+      margin: 18px 14px 0;
+      border-radius: 18px;
+      overflow: hidden;
+      position: relative;
+      background: var(--card);
+      min-height: 220px;
+      text-decoration: none;
+      display: block;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.55);
+      transition: transform 0.18s ease;
+    }
+    .lw-hero:active { transform: scale(0.98); }
+    .lw-hero img {
+      width: 100%;
+      height: 220px;
+      object-fit: cover;
+      display: block;
+    }
+    .lw-hero-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(0,0,0,0.85) 45%, transparent 100%);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+    }
+    .lw-hero-badge {
+      display: inline-block;
+      background: linear-gradient(90deg, var(--orange), var(--gold));
+      color: #111;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      padding: 3px 10px;
+      border-radius: 20px;
+      margin-bottom: 8px;
+      width: fit-content;
+      text-transform: uppercase;
+    }
+    .lw-hero-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 18px;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.3;
+      margin-bottom: 6px;
+    }
+    .lw-hero-excerpt {
+      font-size: 13px;
+      color: rgba(255,255,255,0.75);
+      line-height: 1.5;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .lw-hero-cta {
+      margin-top: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(90deg, var(--blue), #0d5fd1);
+      color: #fff;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 600;
+      font-size: 13px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      width: fit-content;
+      text-decoration: none;
+    }
+
+    /* ── Section label ───────────────────────────────────── */
+    .lw-section-label {
+      padding: 22px 18px 10px;
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--gold);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .lw-section-label::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, #333, transparent);
+    }
+
+    /* ── Horizontal scroll rail ──────────────────────────── */
+    .lw-rail {
+      display: flex;
+      overflow-x: auto;
+      gap: 12px;
+      padding: 0 14px 20px;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .lw-rail::-webkit-scrollbar { display: none; }
+
+    /* ── Post card ───────────────────────────────────────── */
+    .lw-card {
+      flex: 0 0 200px;
+      scroll-snap-align: start;
+      background: var(--card);
+      border-radius: 14px;
+      overflow: hidden;
+      text-decoration: none;
+      color: var(--text);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+      border: 1px solid #222;
+      transition: transform 0.15s ease, border-color 0.15s ease;
+      display: block;
+    }
+    .lw-card:active { transform: scale(0.97); border-color: var(--gold); }
+    .lw-card-img {
+      width: 100%;
+      height: 118px;
+      object-fit: cover;
+      display: block;
+      background: #1e1e1e;
+    }
+    .lw-card-img-placeholder {
+      width: 100%;
+      height: 118px;
+      background: linear-gradient(135deg, #1a1a1a, #242424);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+    }
+    .lw-card-body { padding: 10px 12px 14px; }
+    .lw-card-cat {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--orange);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+    .lw-card-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.35;
+      color: #fff;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* ── Visit site CTA ──────────────────────────────────── */
+    .lw-visit {
+      margin: 6px 14px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: linear-gradient(90deg, var(--green), #34bf49);
+      color: #fff;
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 14px;
+      padding: 14px;
+      border-radius: 14px;
+      text-decoration: none;
+      box-shadow: 0 4px 16px rgba(40,164,40,0.3);
+    }
+
+    /* ── Loading skeleton ────────────────────────────────── */
+    .lw-skeleton {
+      background: linear-gradient(90deg, #1a1a1a 25%, #242424 50%, #1a1a1a 75%);
+      background-size: 200% 100%;
+      animation: lw-shimmer 1.4s infinite;
+      border-radius: 10px;
+    }
+    @keyframes lw-shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    .lw-hero-skeleton {
+      margin: 18px 14px 0;
+      height: 220px;
+      border-radius: 18px;
+    }
+    .lw-card-skeleton {
+      flex: 0 0 200px;
+      height: 200px;
+      border-radius: 14px;
+    }
+
+    /* ── Empty state ─────────────────────────────────────── */
+    .lw-empty {
+      text-align: center;
+      padding: 60px 24px;
+      color: var(--muted);
+    }
+    .lw-empty span { font-size: 40px; display: block; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+
+<div class="lw-header">
+  <img src="https://liyogworld.com.ng/favicon.ico"
+       onerror="this.src='https://www.liyogworld.com.ng/favicon.ico'"
+       alt="Liyog World" />
+  <div class="lw-header-text">
+    <h1>Liyog World Global</h1>
+    <p>Faith. Purpose. Impact.</p>
+  </div>
+  <button class="lw-close" id="lw-close" aria-label="Close">✕</button>
+</div>
+
+<div id="lw-content">
+  <!-- Hero skeleton -->
+  <div class="lw-skeleton lw-hero-skeleton"></div>
+  <!-- Rail skeletons -->
+  <div class="lw-section-label">Latest Posts</div>
+  <div class="lw-rail" id="lw-rail-skeleton">
+    <div class="lw-skeleton lw-card-skeleton"></div>
+    <div class="lw-skeleton lw-card-skeleton"></div>
+    <div class="lw-skeleton lw-card-skeleton"></div>
+  </div>
+</div>
+
+<a class="lw-visit" href="https://www.liyogworld.com.ng/" id="lw-visit-btn">
+  🌍 Visit Liyog World Global
+</a>
+
+<script>
+const API_BASE = "https://liyog-push-notify.goddayprincess1.workers.dev";
+
+function timeAgo(iso) {
+  const diff = Math.floor((Date.now() - new Date(iso)) / 1000);
+  if (diff < 60) return "just now";
+  if (diff < 3600) return Math.floor(diff / 60) + "m ago";
+  if (diff < 86400) return Math.floor(diff / 3600) + "h ago";
+  return Math.floor(diff / 86400) + "d ago";
+}
+
+function heroHTML(post) {
+  const img = post.featured_image
+    ? `<img src="${post.featured_image}" alt="" />`
+    : `<div style="height:220px;background:linear-gradient(135deg,#1a1a1a,#242424)"></div>`;
+
+  return `
+    <a class="lw-hero" href="${post.url}">
+      ${img}
+      <div class="lw-hero-overlay">
+        <span class="lw-hero-badge">✦ Latest Post</span>
+        <div class="lw-hero-title">${post.title}</div>
+        ${post.excerpt ? `<div class="lw-hero-excerpt">${post.excerpt}</div>` : ""}
+        <span class="lw-hero-cta">Read Full Article →</span>
+      </div>
+    </a>`;
+}
+
+function cardHTML(post, index) {
+  const accentColors = ["var(--orange)", "var(--blue)", "var(--gold)", "var(--green)"];
+  const accent = accentColors[index % accentColors.length];
+
+  const imgEl = post.featured_image
+    ? `<img class="lw-card-img" src="${post.featured_image}" alt="" loading="lazy" />`
+    : `<div class="lw-card-img-placeholder">✦</div>`;
+
+  return `
+    <a class="lw-card" href="${post.url}" style="border-top: 3px solid ${accent}">
+      ${imgEl}
+      <div class="lw-card-body">
+        ${post.category ? `<div class="lw-card-cat">${post.category}</div>` : ""}
+        <div class="lw-card-title">${post.title}</div>
+      </div>
+    </a>`;
+}
+
+async function loadFeed() {
+  // Check if we arrived from a notification tap — if so, highlight the
+  // specific post by making it the hero regardless of publish date order.
+  const params = new URLSearchParams(location.search);
+  const highlightPostId = params.get("post_id");
+
+  try {
+    const res = await fetch(`${API_BASE}/api/feed?platform=web&limit=5`);
+    const { items } = await res.json();
+
+    if (!items || items.length === 0) {
+      document.getElementById("lw-content").innerHTML = `
+        <div class="lw-empty">
+          <span>✦</span>
+          <p>No posts yet — check back soon.</p>
+        </div>`;
+      return;
+    }
+
+    // If we came from a specific notification, move that post to the front
+    let ordered = [...items];
+    if (highlightPostId) {
+      const idx = ordered.findIndex((p) => p.post_id === highlightPostId);
+      if (idx > 0) {
+        const [hero] = ordered.splice(idx, 1);
+        ordered.unshift(hero);
+      }
+    }
+
+    const [hero, ...rest] = ordered;
+
+    const heroSection = heroHTML(hero);
+    const railSection = rest.length > 0
+      ? `<div class="lw-section-label">More to Read</div>
+         <div class="lw-rail">${rest.map((p, i) => cardHTML(p, i)).join("")}</div>`
+      : "";
+
+    document.getElementById("lw-content").innerHTML = heroSection + railSection;
+
+    // Make "Visit" button always go to homepage
+    document.getElementById("lw-visit-btn").href = "https://www.liyogworld.com.ng/";
+
+  } catch (err) {
+    document.getElementById("lw-content").innerHTML = `
+      <div class="lw-empty">
+        <span>⚠️</span>
+        <p>Couldn't load posts right now. Try again shortly.</p>
+      </div>`;
+  }
+}
+
+// Close button: go back if possible, otherwise go to homepage
+document.getElementById("lw-close").addEventListener("click", () => {
+  if (history.length > 1) history.back();
+  else location.href = "https://www.liyogworld.com.ng/";
+});
+
+loadFeed();
+</script>
+</body>
+</html>
