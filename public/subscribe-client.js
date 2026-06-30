@@ -90,32 +90,47 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 async function enablePushNotifications() {
-  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-    alert("Push notifications aren't supported in this browser.");
-    return;
-  }
+  try {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      alert("Step 0 FAILED: Push not supported in this browser.");
+      return;
+    }
 
-  const permission = await Notification.requestPermission();
-  if (permission !== "granted") return;
+    alert("Step 1: requesting permission...");
+    const permission = await Notification.requestPermission();
+    alert("Step 1 result: " + permission);
+    if (permission !== "granted") return;
 
-  const registration = await navigator.serviceWorker.register("/sw.js");
-  const { publicKey } = await fetch(`${API_BASE}/api/push/vapid-public-key`).then((r) => r.json());
+    alert("Step 2: registering service worker...");
+    const registration = await navigator.serviceWorker.register("/sw.js");
+    alert("Step 2 OK");
 
-  let subscription = await registration.pushManager.getSubscription();
-  if (!subscription) {
-    subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(publicKey),
+    alert("Step 3: fetching VAPID key...");
+    const keyRes = await fetch(`${API_BASE}/api/push/vapid-public-key`);
+    const { publicKey } = await keyRes.json();
+    alert("Step 3 OK, key starts with: " + publicKey.slice(0, 10));
+
+    alert("Step 4: subscribing...");
+    let subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+    }
+    alert("Step 4 OK");
+
+    alert("Step 5: saving subscription to server...");
+    await fetch(`${API_BASE}/api/push/subscribe`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(subscription.toJSON()),
     });
+
+    alert("All done! You're subscribed.");
+  } catch (err) {
+    alert("ERROR: " + err.message);
   }
-
-  await fetch(`${API_BASE}/api/push/subscribe`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(subscription.toJSON()),
-  });
-
-  alert("You're subscribed! You'll be notified of new posts.");
 }
 
 async function renderFeedPanel(containerEl) {
