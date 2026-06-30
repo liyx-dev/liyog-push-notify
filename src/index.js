@@ -25,16 +25,14 @@ export default {
     if (request.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
 
     const url = new URL(request.url);
-    const { pathname } = url;
+const { pathname } = url;
 
-    // Serve sw.js and subscribe-client.js as static files from this same Worker,
-    // so they can live on your real domain (liyogworld.com.ng) once a route is added.
-    if (pathname === "/sw.js" || pathname === "/subscribe-client.js" || pathname === "/notifications" || pathname === "/notifications.html") {
-      const assetResponse = await env.ASSETS.fetch(request);
-      if (assetResponse.status !== 404) return assetResponse;
-    }
+if (pathname === "/sw.js" || pathname === "/subscribe-client.js") {
+  const assetResponse = await env.ASSETS.fetch(request);
+  if (assetResponse.status !== 404) return assetResponse;
+}
 
-    try {
+try {
       // ---- Client gets the VAPID public key before subscribing ----
       if (pathname === "/api/push/vapid-public-key" && request.method === "GET") {
         return json({ publicKey: env.VAPID_PUBLIC_KEY });
@@ -195,20 +193,15 @@ export default {
         continue;
       }
 
-      // Landing URL: the premium notifications page, pre-highlighted to this post.
-      // Tapping the notification opens this page; the page itself has a "Read Full
-      // Article" CTA that leads directly to the post on liyogworld.com.ng.
-      const notifLandingUrl = `${env.FEED_PAGE_URL}?post_id=${encodeURIComponent(post.post_id)}`;
-
       const richPayload = {
-        title: post.title,
-        body: post.excerpt || "Tap to read the full story.",
-        image: post.featured_image,
-        icon: "https://www.liyogworld.com.ng/favicon.ico",
-        badge: "https://www.liyogworld.com.ng/favicon.ico",
-        url: notifLandingUrl,
-        postId: post.post_id,
-      };
+  title: post.title,
+  body: post.excerpt || "Tap to read the full story",
+  image: post.featured_image,
+  icon: "https://www.liyogworld.com.ng/favicon.ico",
+  badge: "https://www.liyogworld.com.ng/favicon.ico",
+  url: `${env.FEED_PAGE_URL}?post_id=${encodeURIComponent(post.post_id)}`,
+  postId: post.post_id,
+};
 
       // --- Web push fan-out ---
       const webSubs = await env.DB.prepare(
@@ -262,3 +255,5 @@ export default {
     }
   },
 };
+
+            
