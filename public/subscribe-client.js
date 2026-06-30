@@ -3,7 +3,7 @@
 // Blogger template (right before </body>). Update API_BASE below to your
 // deployed Worker URL once you have it.
 
-const API_BASE = "https://liyog-push-notify.goddayprincess1.workers.dev/"; // <-- replace after deploy
+const API_BASE = "https://liyog-push-notify.goddayprincess1.workers.dev"; // <-- replace after deploy
 
 function urlBase64ToUint8Array(base64String) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
