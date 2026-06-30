@@ -25,9 +25,14 @@ export default {
     if (request.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
 
     const url = new URL(request.url);
-    const { pathname } = url;
+const { pathname } = url;
 
-    try {
+if (pathname === "/sw.js" || pathname === "/subscribe-client.js") {
+  const assetResponse = await env.ASSETS.fetch(request);
+  if (assetResponse.status !== 404) return assetResponse;
+}
+
+try {
       // ---- Client gets the VAPID public key before subscribing ----
       if (pathname === "/api/push/vapid-public-key" && request.method === "GET") {
         return json({ publicKey: env.VAPID_PUBLIC_KEY });
