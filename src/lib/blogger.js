@@ -19,8 +19,13 @@ function extractExcerpt(entry) {
 }
 
 function extractUrl(entry) {
-  const link = (entry.link || []).find((l) => l.rel === "alternate");
-  return link ? link.href : null;
+  const links = entry.link || [];
+  const alternate = links.find((l) => l.rel === "alternate" && l.href);
+  if (alternate) return alternate.href;
+  // Fallback: any link with an href at all
+  const anyLink = links.find((l) => l.href);
+  if (anyLink) return anyLink.href;
+  return null;
 }
 
 export async function fetchNewBloggerPosts(db, feedUrl) {
