@@ -33,7 +33,7 @@ FEED_PAGE_URL    = "https://www.liyogworld.com.ng/notifications"
 # "direct" ok → notification tap opens the post URL directly (safe, currently live)
 # "landing" → notification tap opens /notifications?post_id=XXX (premium page)
 # Change this value here and commit to switch modes — no code change needed.
-NOTIFICATION_MODE = "direct"
+NOTIFICATION_MODE = "landing"
 
 # ── Secrets (set with: wrangler secret put <NAME>) ────────────────────
 # VAPID_PUBLIC_KEY    — base64url public key
