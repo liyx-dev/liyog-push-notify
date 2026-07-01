@@ -1,0 +1,43 @@
+name = "liyog-push-notify"
+main = "src/index.js"
+compatibility_date = "2026-06-01"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "liyog-notify-db"
+database_id = "674b64f2-8848-4456-89c8-27024724fb86"
+
+[[queues.producers]]
+binding = "PUSH_QUEUE"
+queue = "liyog-push-queue"
+
+[[queues.consumers]]
+queue = "liyog-push-queue"
+max_batch_size = 20
+max_batch_timeout = 5
+max_retries = 3
+
+[triggers]
+crons = ["*/10 * * * *"]
+
+[vars]
+VAPID_SUBJECT    = "mailto:you@liyogworld.com.ng"
+BLOG_FEED_URL    = "https://liyogworld.com.ng/feeds/posts/default?alt=json&max-results=10"
+FEED_PAGE_URL    = "https://www.liyogworld.com.ng/notifications"
+
+# ── Notification mode toggle ──────────────────────────────────────────
+# "direct"  → notification tap opens the post URL directly (safe, currently live)
+# "landing" → notification tap opens /notifications?post_id=XXX (premium page)
+# Change this value here and commit to switch modes — no code change needed.
+NOTIFICATION_MODE = "direct"
+
+# ── Secrets (set with: wrangler secret put <NAME>) ────────────────────
+# VAPID_PUBLIC_KEY    — base64url public key
+# VAPID_PRIVATE_KEY   — JWK JSON string
+# ADMIN_API_KEY       — your chosen admin password
+# FCM_PROJECT_ID      — set when Android app exists
+# FCM_SERVICE_ACCOUNT — set when Android app exists
