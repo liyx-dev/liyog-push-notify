@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Liyog Push — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet"/>
+<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:#FFD700;--orange:#FF7A00;--blue:#1877F2;--green:#28A428;
+  --red:#FF3B30;--black:#0a0a0a;--surface:#111;--card:#181818;
+  --border:#2a2a2a;--text:#f0f0f0;--muted:#888;--font:'DM Sans',sans-serif;
+}
+html,body{height:100%;background:var(--black);color:var(--text);font-family:var(--font);font-size:14px}
+a{color:var(--blue);text-decoration:none}
+/* ── Login ── */
+#login-screen{
+  position:fixed;inset:0;background:var(--black);
+  display:flex;align-items:center;justify-content:center;z-index:9999;
+}
+.login-box{
+  background:var(--card);border:1px solid var(--border);border-radius:18px;
+  padding:32px 28px;width:100%;max-width:360px;text-align:center;
+}
+.login-box h1{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;
+  background:linear-gradient(90deg,var(--gold),var(--orange));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;margin-bottom:6px}
+.login-box p{color:var(--muted);font-size:13px;margin-bottom:24px}
+.login-box input{
+  width:100%;background:#222;border:1px solid var(--border);color:var(--text);
+  padding:11px 14px;border-radius:10px;font-size:14px;outline:none;
+  font-family:var(--font);margin-bottom:14px;
+}
+.login-box input:focus{border-color:var(--gold)}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  border:none;cursor:pointer;font-family:var(--font);font-weight:600;
+  border-radius:10px;padding:10px 18px;font-size:13px;transition:opacity .15s;
+}
+.btn:hover{opacity:.85}.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-gold{background:linear-gradient(90deg,var(--gold),var(--orange));color:#111;width:100%}
+.btn-green{background:var(--green);color:#fff}
+.btn-blue{background:var(--blue);color:#fff}
+.btn-red{background:var(--red);color:#fff}
+.btn-ghost{background:#222;color:var(--text);border:1px solid var(--border)}
+/* ── Layout ── */
+#app{display:none;min-height:100vh}
+.top-bar{
+  display:flex;align-items:center;gap:12px;padding:14px 18px;
+  border-bottom:1px solid var(--border);background:var(--surface);
+  position:sticky;top:0;z-index:100;
+}
+.top-bar-logo{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;
+  background:linear-gradient(90deg,var(--gold),var(--orange));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.top-bar-sub{font-size:11px;color:var(--muted)}
+.mode-badge{
+  margin-left:auto;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;
+  letter-spacing:.05em;text-transform:uppercase;cursor:pointer;border:none;
+}
+.mode-direct{background:#1a3a1a;color:var(--green)}
+.mode-landing{background:#1a2a3a;color:var(--blue)}
+/* ── Tabs ── */
+.tabs{
+  display:flex;overflow-x:auto;border-bottom:1px solid var(--border);
+  background:var(--surface);scrollbar-width:none;
+}
+.tabs::-webkit-scrollbar{display:none}
+.tab{
+  flex-shrink:0;padding:12px 18px;font-size:13px;font-weight:600;color:var(--muted);
+  cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;
+  background:none;border-top:none;border-left:none;border-right:none;
+  font-family:var(--font);transition:color .15s;
+}
+.tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+/* ── Panels ── */
+.panel{display:none;padding:18px;max-width:900px;margin:0 auto}
+.panel.active{display:block}
+/* ── Stat cards ── */
+.stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px}
+.stat-card{
+  background:var(--card);border:1px solid var(--border);border-radius:14px;
+  padding:16px;
+}
+.stat-card .label{font-size:11px;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.05em;margin-bottom:6px}
+.stat-card .value{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--gold)}
+.stat-card .sub{font-size:11px;color:var(--muted);margin-top:2px}
+/* ── Section headings ── */
+.section-title{
+  font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:var(--gold);
+  text-transform:uppercase;letter-spacing:.05em;margin:22px 0 12px;
+  display:flex;align-items:center;gap:8px;
+}
+.section-title::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--border),transparent)}
+/* ── Health row ── */
+.health-row{
+  display:flex;align-items:center;gap:10px;padding:12px 14px;
+  background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;
+}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dot-green{background:var(--green)}.dot-red{background:var(--red)}.dot-yellow{background:var(--gold)}
+/* ── Form ── */
+.form-group{margin-bottom:16px}
+.form-group label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.form-group input,.form-group select,.form-group textarea{
+  width:100%;background:#1a1a1a;border:1px solid var(--border);color:var(--text);
+  padding:10px 13px;border-radius:10px;font-size:13px;outline:none;
+  font-family:var(--font);resize:vertical;
+}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--gold)}
+#quill-editor{background:#1a1a1a;border:1px solid var(--border);border-radius:0 0 10px 10px;min-height:140px;color:var(--text)}
+.ql-toolbar.ql-snow{background:#222;border:1px solid var(--border);border-radius:10px 10px 0 0;border-bottom:none}
+.ql-snow .ql-stroke{stroke:var(--muted)}.ql-snow .ql-fill{fill:var(--muted)}
+.ql-snow.ql-toolbar button:hover .ql-stroke{stroke:var(--gold)}
+.preview-box{
+  background:#1a1a1a;border:1px solid var(--border);border-radius:10px;
+  padding:14px;margin-top:12px;
+}
+.preview-box .preview-title{font-family:'Syne',sans-serif;font-weight:800;font-size:15px;margin-bottom:4px}
+.preview-box .preview-body{font-size:12px;color:var(--muted);margin-bottom:8px}
+.preview-box .preview-img{width:100%;max-height:140px;object-fit:cover;border-radius:8px;display:none}
+/* ── Table ── */
+.data-table{width:100%;border-collapse:collapse;font-size:12px}
+.data-table th{
+  text-align:left;padding:8px 10px;color:var(--muted);font-weight:600;
+  text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--border);
+}
+.data-table td{padding:9px 10px;border-bottom:1px solid #1e1e1e;vertical-align:top}
+.data-table tr:hover td{background:#161616}
+.badge{
+  display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.04em;
+}
+.badge-sent{background:#1a3a1a;color:var(--green)}
+.badge-failed{background:#3a1a1a;color:var(--red)}
+.badge-opened{background:#1a2a3a;color:var(--blue)}
+.badge-queued{background:#2a2a1a;color:var(--gold)}
+.badge-web{background:#1a1a2a;color:#9aa3ff}
+.badge-device{background:#1a2a1a;color:#7fc97f}
+/* ── Toast ── */
+#toast{
+  position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);
+  background:var(--card);border:1px solid var(--border);border-radius:10px;
+  padding:12px 20px;font-size:13px;font-weight:600;z-index:9999;
+  transition:transform .3s ease;pointer-events:none;white-space:nowrap;
+}
+#toast.show{transform:translateX(-50%) translateY(0)}
+#toast.ok{border-color:var(--green);color:var(--green)}
+#toast.err{border-color:var(--red);color:var(--red)}
+/* ── Misc ── */
+.empty{text-align:center;padding:40px 20px;color:var(--muted)}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.row-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+@media(min-width:600px){.stats-grid{grid-template-columns:repeat(4,1fr)}}
+</style>
+</head>
+<body>
+
+<!-- ── Login ── -->
+<div id="login-screen">
+  <div class="login-box">
+    <h1>Liyog Push Admin</h1>
+    <p>Enter your admin key to continue</p>
+    <input type="password" id="key-input" placeholder="Admin API Key" autocomplete="current-password"/>
+    <button class="btn btn-gold" onclick="doLogin()">Sign In</button>
+    <div id="login-err" style="color:var(--red);font-size:12px;margin-top:10px"></div>
+  </div>
+</div>
+
+<!-- ── App ── -->
+<div id="app">
+  <div class="top-bar">
+    <div>
+      <div class="top-bar-logo">Liyog Push Admin</div>
+      <div class="top-bar-sub">liyogworld.com.ng</div>
+    </div>
+    <button class="mode-badge" id="mode-badge" onclick="toggleMode()" title="Click to toggle notification mode"></button>
+    <button class="btn btn-ghost" style="margin-left:8px;padding:6px 12px;font-size:12px" onclick="doLogout()">Sign out</button>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="overview">📊 Overview</button>
+    <button class="tab" data-tab="compose">✍️ Compose</button>
+    <button class="tab" data-tab="posts">📝 Posts</button>
+    <button class="tab" data-tab="subscribers">👥 Subscribers</button>
+    <button class="tab" data-tab="logs">📋 Logs</button>
+  </div>
+
+  <!-- ── Overview ── -->
+  <div class="panel active" id="panel-overview">
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-card"><div class="label">Web Subscribers</div><div class="value" id="s-web">—</div><div class="sub" id="s-web-active"></div></div>
+      <div class="stat-card"><div class="label">Device Tokens</div><div class="value" id="s-device">—</div><div class="sub" id="s-device-active"></div></div>
+      <div class="stat-card"><div class="label">Posts Cached</div><div class="value" id="s-posts">—</div><div class="sub" id="s-posts-notified"></div></div>
+      <div class="stat-card"><div class="label">Notifications Sent</div><div class="value" id="s-sent">—</div><div class="sub" id="s-failed"></div></div>
+    </div>
+
+    <div class="section-title">System Health</div>
+    <div id="health-rows"></div>
+
+    <div class="section-title">Quick Actions</div>
+    <div class="row-actions">
+      <button class="btn btn-blue" onclick="showTab('compose')">✍️ Compose Push</button>
+      <button class="btn btn-ghost" onclick="loadStats()">↻ Refresh</button>
+      <button class="btn btn-ghost" onclick="runTestPush()">🧪 Send Test Push</button>
+    </div>
+  </div>
+
+  <!-- ── Compose ── -->
+  <div class="panel" id="panel-compose">
+    <div class="section-title">Compose Custom Push</div>
+    <div class="form-group">
+      <label>Notification Title *</label>
+      <input type="text" id="c-title" placeholder="e.g. New Post: The Power of Faith" maxlength="80"
+             oninput="updatePreview()"/>
+    </div>
+    <div class="form-group">
+      <label>Body Message *</label>
+      <div id="quill-editor"></div>
+    </div>
+    <div class="form-group" style="margin-top:12px">
+      <label>Featured Image URL (optional)</label>
+      <input type="url" id="c-image" placeholder="https://..." oninput="updatePreview()"/>
+    </div>
+    <div class="form-group">
+      <label>Action URL (where to go on tap)</label>
+      <input type="url" id="c-url" placeholder="https://www.liyogworld.com.ng/..."/>
+    </div>
+    <div class="section-title">Live Preview</div>
+    <div class="preview-box">
+      <img class="preview-img" id="preview-img" src="" alt=""/>
+      <div class="preview-title" id="preview-title">Notification title</div>
+      <div class="preview-body" id="preview-body">Your message will appear here…</div>
+    </div>
+    <div class="row-actions" style="margin-top:18px">
+      <button class="btn btn-green" id="send-btn" onclick="sendCustomPush()">📤 Send to All Subscribers</button>
+      <button class="btn btn-ghost" onclick="clearCompose()">✕ Clear</button>
+    </div>
+    <div id="send-result" style="margin-top:14px;font-size:13px;display:none"></div>
+  </div>
+
+  <!-- ── Posts ── -->
+  <div class="panel" id="panel-posts">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div class="section-title" style="margin:0">Cached Posts</div>
+      <button class="btn btn-ghost" onclick="loadPosts()" style="padding:6px 12px;font-size:12px">↻ Refresh</button>
+    </div>
+    <div id="posts-table"><div class="empty"><span class="spinner"></span></div></div>
+  </div>
+
+  <!-- ── Subscribers ── -->
+  <div class="panel" id="panel-subscribers">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div class="section-title" style="margin:0">Web Push Subscribers</div>
+      <button class="btn btn-ghost" onclick="loadSubscribers()" style="padding:6px 12px;font-size:12px">↻ Refresh</button>
+    </div>
+    <div id="subs-table"><div class="empty"><span class="spinner"></span></div></div>
+  </div>
+
+  <!-- ── Logs ── -->
+  <div class="panel" id="panel-logs">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div class="section-title" style="margin:0">Notification Logs</div>
+      <button class="btn btn-ghost" onclick="loadStats()" style="padding:6px 12px;font-size:12px">↻ Refresh</button>
+    </div>
+    <div id="logs-table"><div class="empty"><span class="spinner"></span></div></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const WORKER = "https://liyog-push-notify.goddayprincess1.workers.dev";
+let ADMIN_KEY = "";
+let quill;
+
+// ── Auth ─────────────────────────────────────────────────────────────
+async function doLogin() {
+  const key = document.getElementById("key-input").value.trim();
+  if (!key) return;
+  const res = await fetch(`${WORKER}/api/admin/stats`, {
+    headers: { "X-Admin-Key": key }
+  });
+  if (res.ok) {
+    ADMIN_KEY = key;
+    sessionStorage.setItem("liyog_admin_key", key);
+    document.getElementById("login-screen").style.display = "none";
+    document.getElementById("app").style.display = "block";
+    initApp();
+  } else {
+    document.getElementById("login-err").textContent = "Invalid key. Try again.";
+  }
+}
+
+function doLogout() {
+  sessionStorage.removeItem("liyog_admin_key");
+  location.reload();
+}
+
+document.getElementById("key-input").addEventListener("keydown", e => {
+  if (e.key === "Enter") doLogin();
+});
+
+// Auto-login if key in session
+const savedKey = sessionStorage.getItem("liyog_admin_key");
+if (savedKey) {
+  ADMIN_KEY = savedKey;
+  document.getElementById("login-screen").style.display = "none";
+  document.getElementById("app").style.display = "block";
+  window.addEventListener("DOMContentLoaded", initApp);
+}
+
+// ── Init ─────────────────────────────────────────────────────────────
+function initApp() {
+  initQuill();
+  initTabs();
+  loadStats();
+  loadPosts();
+  loadSubscribers();
+}
+
+function initQuill() {
+  quill = new Quill("#quill-editor", {
+    theme: "snow",
+    placeholder: "Write your notification message…",
+    modules: {
+      toolbar: [
+        ["bold","italic","underline"],
+        [{ list: "ordered" }, { list: "bullet" }],
+        ["link"],
+        ["clean"]
+      ]
+    }
+  });
+  quill.on("text-change", updatePreview);
+}
+
+function initTabs() {
+  document.querySelectorAll(".tab").forEach(tab => {
+    tab.addEventListener("click", () => showTab(tab.dataset.tab));
+  });
+}
+
+function showTab(name) {
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === name));
+  document.querySelectorAll(".panel").forEach(p => p.classList.toggle("active", p.id === `panel-${name}`));
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────
+function toast(msg, type = "ok") {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.className = `show ${type}`;
+  setTimeout(() => el.classList.remove("show"), 3000);
+}
+
+// ── Mode toggle ───────────────────────────────────────────────────────
+let currentMode = "direct";
+function renderModeBadge(mode) {
+  currentMode = mode;
+  const b = document.getElementById("mode-badge");
+  b.textContent = mode === "landing" ? "🌐 Landing Mode" : "↗ Direct Mode";
+  b.className = `mode-badge ${mode === "landing" ? "mode-landing" : "mode-direct"}`;
+}
+function toggleMode() {
+  const hint = currentMode === "direct"
+    ? "Switch to Landing mode?\n\nNotifications will open the /notifications page.\n\nChange NOTIFICATION_MODE in wrangler.toml to \"landing\" and redeploy."
+    : "Switch to Direct mode?\n\nNotifications will open the post URL directly.\n\nChange NOTIFICATION_MODE in wrangler.toml to \"direct\" and redeploy.";
+  alert(hint);
+}
+
+// ── Stats / Overview ─────────────────────────────────────────────────
+async function loadStats() {
+  const res = await fetch(`${WORKER}/api/admin/stats`, { headers: { "X-Admin-Key": ADMIN_KEY } });
+  const data = await res.json();
+
+  renderModeBadge(data.mode || "direct");
+
+  document.getElementById("s-web").textContent = data.subscribers?.total ?? "—";
+  document.getElementById("s-web-active").textContent = `${data.subscribers?.active ?? 0} active`;
+  document.getElementById("s-device").textContent = data.devices?.total ?? "—";
+  document.getElementById("s-device-active").textContent = `${data.devices?.active ?? 0} active`;
+  document.getElementById("s-posts").textContent = data.posts?.total ?? "—";
+  document.getElementById("s-posts-notified").textContent = `${data.posts?.notified ?? 0} notified`;
+
+  const sent   = (data.logSummary || []).find(r => r.status === "sent")?.cnt   || 0;
+  const failed = (data.logSummary || []).find(r => r.status === "failed")?.cnt || 0;
+  document.getElementById("s-sent").textContent = sent;
+  document.getElementById("s-failed").textContent = `${failed} failed`;
+
+  const health = document.getElementById("health-rows");
+  health.innerHTML = [
+    { label: "Worker",          ok: true,                desc: "liyog-push-notify deployed" },
+    { label: "D1 Database",     ok: (data.posts?.total !== undefined), desc: "liyog-notify-db connected" },
+    { label: "Queue",           ok: true,                desc: "liyog-push-queue active" },
+    { label: "Web Subscribers", ok: (data.subscribers?.active > 0), desc: `${data.subscribers?.active ?? 0} active subscriptions` },
+    { label: "FCM (Android)",   ok: false,               desc: "Dormant — activate once app ships" },
+    { label: "Notification Mode", ok: true,              desc: `Current: ${data.mode || "direct"}` },
+  ].map(r => `
+    <div class="health-row">
+      <div class="dot ${r.ok ? "dot-green" : "dot-yellow"}"></div>
+      <div style="flex:1"><strong>${r.label}</strong> <span style="color:var(--muted);font-size:12px">— ${r.desc}</span></div>
+    </div>
+  `).join("");
+
+  // Render logs table
+  const logs = data.recentLogs || [];
+  document.getElementById("logs-table").innerHTML = logs.length === 0
+    ? `<div class="empty">No logs yet.</div>`
+    : `<div style="overflow-x:auto"><table class="data-table">
+        <thead><tr><th>Post</th><th>Type</th><th>Status</th><th>Sent</th><th>Error</th></tr></thead>
+        <tbody>${logs.map(l => `
+          <tr>
+            <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.title || l.post_id}</td>
+            <td><span class="badge badge-${l.recipient_type}">${l.recipient_type}</span></td>
+            <td><span class="badge badge-${l.status}">${l.status}</span></td>
+            <td style="white-space:nowrap;color:var(--muted)">${l.sent_at ? l.sent_at.slice(0,16).replace("T"," ") : "—"}</td>
+            <td style="color:var(--red);font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis">${l.error || ""}</td>
+          </tr>`).join("")}
+        </tbody></table></div>`;
+}
+
+// ── Posts ─────────────────────────────────────────────────────────────
+async function loadPosts() {
+  const res = await fetch(`${WORKER}/api/admin/posts`, { headers: { "X-Admin-Key": ADMIN_KEY } });
+  const { posts } = await res.json();
+  document.getElementById("posts-table").innerHTML = !posts?.length
+    ? `<div class="empty">No posts cached yet.</div>`
+    : `<div style="overflow-x:auto"><table class="data-table">
+        <thead><tr><th>Title</th><th>Category</th><th>Published</th><th>Notified</th><th>Opens</th><th></th></tr></thead>
+        <tbody>${posts.map(p => `
+          <tr>
+            <td style="max-width:180px"><a href="${p.url}" target="_blank" style="color:var(--gold)">${p.title}</a></td>
+            <td>${p.category || "—"}</td>
+            <td style="white-space:nowrap;color:var(--muted)">${p.published_at?.slice(0,10) || "—"}</td>
+            <td>${p.notified ? '<span class="badge badge-sent">Yes</span>' : '<span class="badge badge-queued">No</span>'}</td>
+            <td>${p.popularity_score}</td>
+            <td><button class="btn btn-ghost" style="padding:4px 10px;font-size:11px"
+                onclick="resendPost('${p.post_id}','${p.title.replace(/'/g,"\\'")}')">↻ Resend</button></td>
+          </tr>`).join("")}
+        </tbody></table></div>`;
+}
+
+async function resendPost(postId, title) {
+  if (!confirm(`Resend push for:\n"${title}"?`)) return;
+  const res = await fetch(`${WORKER}/internal/posts/new`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Admin-Key": ADMIN_KEY },
+    body: JSON.stringify({ postId, title, url: "https://www.liyogworld.com.ng/", publishedAt: new Date().toISOString() })
+  });
+  const data = await res.json();
+  toast(data.ok ? "✓ Queued for resend" : "✗ Failed: " + data.error, data.ok ? "ok" : "err");
+}
+
+// ── Subscribers ───────────────────────────────────────────────────────
+async function loadSubscribers() {
+  const res = await fetch(`${WORKER}/api/admin/subscribers`, { headers: { "X-Admin-Key": ADMIN_KEY } });
+  const { subscribers } = await res.json();
+  document.getElementById("subs-table").innerHTML = !subscribers?.length
+    ? `<div class="empty">No subscribers yet.</div>`
+    : `<div style="overflow-x:auto"><table class="data-table">
+        <thead><tr><th>#</th><th>Status</th><th>Endpoint</th><th>User Agent</th><th>Subscribed</th><th>Last Seen</th></tr></thead>
+        <tbody>${subscribers.map(s => `
+          <tr>
+            <td>${s.id}</td>
+            <td>${s.active ? '<span class="badge badge-sent">Active</span>' : '<span class="badge badge-failed">Inactive</span>'}</td>
+            <td style="font-size:11px;color:var(--muted);max-width:120px;overflow:hidden;text-overflow:ellipsis">${s.endpoint_preview}…</td>
+            <td style="font-size:11px;color:var(--muted);max-width:140px;overflow:hidden;text-overflow:ellipsis">${s.user_agent || "—"}</td>
+            <td style="white-space:nowrap;color:var(--muted)">${s.created_at?.slice(0,10) || "—"}</td>
+            <td style="white-space:nowrap;color:var(--muted)">${s.last_seen_at?.slice(0,10) || "—"}</td>
+          </tr>`).join("")}
+        </tbody></table></div>`;
+}
+
+// ── Compose ───────────────────────────────────────────────────────────
+function updatePreview() {
+  const title = document.getElementById("c-title").value || "Notification title";
+  const body  = quill ? quill.getText().trim() : "";
+  const image = document.getElementById("c-image").value;
+  document.getElementById("preview-title").textContent = title;
+  document.getElementById("preview-body").textContent  = body || "Your message will appear here…";
+  const img = document.getElementById("preview-img");
+  if (image) { img.src = image; img.style.display = "block"; }
+  else        { img.style.display = "none"; }
+}
+
+function clearCompose() {
+  document.getElementById("c-title").value = "";
+  document.getElementById("c-image").value = "";
+  document.getElementById("c-url").value   = "";
+  if (quill) quill.setContents([]);
+  updatePreview();
+  document.getElementById("send-result").style.display = "none";
+}
+
+async function sendCustomPush() {
+  const title = document.getElementById("c-title").value.trim();
+  const body  = quill ? quill.getText().trim() : "";
+  if (!title || !body) { toast("Title and message are required", "err"); return; }
+
+  const btn = document.getElementById("send-btn");
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spinner"></span> Sending…`;
+
+  const res = await fetch(`${WORKER}/api/admin/custom-push`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Admin-Key": ADMIN_KEY },
+    body: JSON.stringify({
+      title,
+      body,
+      image:     document.getElementById("c-image").value.trim() || undefined,
+      actionUrl: document.getElementById("c-url").value.trim()   || undefined,
+    })
+  });
+
+  const data = await res.json();
+  btn.disabled = false;
+  btn.innerHTML = "📤 Send to All Subscribers";
+
+  const result = document.getElementById("send-result");
+  result.style.display = "block";
+  if (data.ok) {
+    result.style.color = "var(--green)";
+    result.textContent = `✓ Sent to ${data.sent} subscriber(s). ${data.failed > 0 ? data.failed + " failed." : ""}`;
+    toast(`✓ Delivered to ${data.sent}`, "ok");
+  } else {
+    result.style.color = "var(--red)";
+    result.textContent = "✗ Error: " + (data.error || "Unknown");
+    toast("✗ Send failed", "err");
+  }
+}
+
+async function runTestPush() {
+  const res = await fetch(`${WORKER}/internal/posts/new`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Admin-Key": ADMIN_KEY },
+    body: JSON.stringify({
+      postId: `test-${Date.now()}`,
+      title:  "🧪 Test Notification",
+      url:    "https://www.liyogworld.com.ng/",
+      excerpt: "This is a test push from Liyog Admin. Everything is working!",
+      publishedAt: new Date().toISOString()
+    })
+  });
+  const data = await res.json();
+  toast(data.ok ? "✓ Test push queued" : "✗ Failed: " + data.error, data.ok ? "ok" : "err");
+  if (data.ok) setTimeout(loadStats, 3000);
+}
+</script>
+</body>
+</html>
