@@ -267,6 +267,27 @@ export default {
         return json({ ok: true, queued: true });
       }
 
+    // Temporary manual cron trigger — remove after testing
+if (pathname === "/api/admin/poll-now" && request.method === "POST") {
+  if (request.headers.get("X-Admin-Key") !== env.ADMIN_API_KEY) {
+    return json({ error: "Unauthorized" }, 401);
+  }
+  const newPosts = await fetchNewBloggerPosts(env.DB, env.BLOG_FEED_URL);
+  for (const post of newPosts) {
+    await env.DB.prepare(
+      `INSERT OR IGNORE INTO posts_cache
+         (post_id, title, url, featured_image, excerpt, category, published_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).bind(
+      post.postId, post.title, post.url,
+      post.featuredImage, post.excerpt, post.category, post.publishedAt
+    ).run();
+    await queueNotifyForPost(env, post.postId);
+  }
+  return json({ ok: true, newPostsFound: newPosts.length });
+}
+
+      
       return json({ error: "Not found" }, 404);
 
     } catch (err) {
