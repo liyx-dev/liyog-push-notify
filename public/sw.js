@@ -33,7 +33,8 @@ self.addEventListener("notificationclick", (event) => {
       try {
         const sub = await self.registration.pushManager.getSubscription();
         if (sub && postId) {
-          fetch(`/api/track/open?post_id=${encodeURIComponent(postId)}&ref=${encodeURIComponent(sub.endpoint)}`);
+          //fetch(`/api/track/open?post_id=${encodeURIComponent(postId)}&ref=${encodeURIComponent(sub.endpoint)}`);
+     fetch(`https://liyog-push-notify.goddayprincess1.workers.dev/api/track/open?post_id=${encodeURIComponent(postId)}&ref=${encodeURIComponent(sub.endpoint)}`);
         }
       } catch (e) {
         /* tracking is best-effort, never block the navigation on it */
