@@ -4,7 +4,7 @@ import { buildSmartFeed } from "./lib/feed.js";
 import { fetchNewBloggerPosts } from "./lib/blogger.js";
 
 const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*", // tighten to your domains in production
+  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type,X-Admin-Key",
 };
@@ -20,25 +20,57 @@ async function queueNotifyForPost(env, postId) {
   await env.PUSH_QUEUE.send({ postId });
 }
 
-export default {
-  async fetch(request, env, ctx) {
-    if (request.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
-
-    const url = new URL(request.url);
-const { pathname } = url;
-
-if (pathname === "/sw.js" || pathname === "/subscribe-client.js") {
-  const assetResponse = await env.ASSETS.fetch(request);
-  if (assetResponse.status !== 404) return assetResponse;
+// NOTIFICATION_MODE controls what happens when a notification is tapped:
+//   "direct"  → opens the post URL directly on liyogworld.com.ng (original flow)
+//   "landing" → opens /notifications?post_id=XXX (premium landing page)
+// Change NOTIFICATION_MODE in wrangler.toml [vars] to switch — no code change needed.
+function resolveNotifUrl(env, postUrl, postId) {
+  const mode = (env.NOTIFICATION_MODE || "direct").trim().toLowerCase();
+  if (mode === "landing") {
+    return `${env.FEED_PAGE_URL}?post_id=${encodeURIComponent(postId)}`;
+  }
+  return postUrl || "https://www.liyogworld.com.ng/";
 }
 
-try {
-      // ---- Client gets the VAPID public key before subscribing ----
+const STATIC_PATHS = [
+  "/sw.js",
+  "/subscribe-client.js",
+  "/notifications",
+  "/notifications.html",
+  "/admin",
+  "/admin.html",
+];
+
+export default {
+  // ── HTTP handler ─────────────────────────────────────────────────────
+  async fetch(request, env, ctx) {
+    if (request.method === "OPTIONS") {
+      return new Response(null, { headers: CORS_HEADERS });
+    }
+
+    const url = new URL(request.url);
+    const { pathname } = url;
+
+    // Serve static assets
+    if (STATIC_PATHS.includes(pathname)) {
+      let assetPath = pathname;
+      if (pathname === "/notifications") assetPath = "/notifications.html";
+      if (pathname === "/admin")         assetPath = "/admin.html";
+      const assetRequest = new Request(
+        new URL(assetPath, request.url).toString(),
+        request
+      );
+      const assetResponse = await env.ASSETS.fetch(assetRequest);
+      if (assetResponse.status !== 404) return assetResponse;
+    }
+
+    try {
+      // ── GET /api/push/vapid-public-key ──────────────────────────────
       if (pathname === "/api/push/vapid-public-key" && request.method === "GET") {
         return json({ publicKey: env.VAPID_PUBLIC_KEY });
       }
 
-      // ---- Save a browser's Web Push subscription ----
+      // ── POST /api/push/subscribe ────────────────────────────────────
       if (pathname === "/api/push/subscribe" && request.method === "POST") {
         const body = await request.json();
         const { endpoint, keys, subscriberId } = body;
@@ -49,23 +81,25 @@ try {
           `INSERT INTO push_subscriptions (subscriber_id, endpoint, p256dh, auth, user_agent)
            VALUES (?, ?, ?, ?, ?)
            ON CONFLICT(endpoint) DO UPDATE SET
-             active = 1, last_seen_at = datetime('now'), subscriber_id = excluded.subscriber_id`
-        )
-          .bind(subscriberId || null, endpoint, keys.p256dh, keys.auth, request.headers.get("User-Agent") || "")
-          .run();
+             active = 1, last_seen_at = datetime('now'),
+             subscriber_id = excluded.subscriber_id`
+        ).bind(
+          subscriberId || null, endpoint, keys.p256dh, keys.auth,
+          request.headers.get("User-Agent") || ""
+        ).run();
         return json({ ok: true });
       }
 
-      // ---- Unsubscribe ----
+      // ── POST /api/push/unsubscribe ──────────────────────────────────
       if (pathname === "/api/push/unsubscribe" && request.method === "POST") {
         const { endpoint } = await request.json();
-        await env.DB.prepare(`UPDATE push_subscriptions SET active = 0 WHERE endpoint = ?`)
-          .bind(endpoint)
-          .run();
+        await env.DB.prepare(
+          `UPDATE push_subscriptions SET active = 0 WHERE endpoint = ?`
+        ).bind(endpoint).run();
         return json({ ok: true });
       }
 
-      // ---- Register an Android/iOS device token (used once the app exists) ----
+      // ── POST /api/device/register ───────────────────────────────────
       if (pathname === "/api/device/register" && request.method === "POST") {
         const { token, platform, subscriberId } = await request.json();
         if (!token) return json({ error: "Missing token" }, 400);
@@ -73,16 +107,15 @@ try {
           `INSERT INTO device_tokens (subscriber_id, fcm_token, platform)
            VALUES (?, ?, ?)
            ON CONFLICT(fcm_token) DO UPDATE SET
-             active = 1, last_seen_at = datetime('now'), subscriber_id = excluded.subscriber_id`
-        )
-          .bind(subscriberId || null, token, platform || "android")
-          .run();
+             active = 1, last_seen_at = datetime('now'),
+             subscriber_id = excluded.subscriber_id`
+        ).bind(subscriberId || null, token, platform || "android").run();
         return json({ ok: true });
       }
 
-      // ---- Smart scrollable feed (web "What's New" panel AND future app screen) ----
+      // ── GET /api/feed ───────────────────────────────────────────────
       if (pathname === "/api/feed" && request.method === "GET") {
-        const limit = Number(url.searchParams.get("limit") || 4);
+        const limit = Math.min(Number(url.searchParams.get("limit") || 5), 10);
         const platform = url.searchParams.get("platform") === "app" ? "app" : "web";
         const items = await buildSmartFeed(env.DB, limit);
         return json({
@@ -92,168 +125,261 @@ try {
         });
       }
 
-      // ---- Mark a notification as opened (for analytics) ----
+      // ── GET /api/track/open ─────────────────────────────────────────
       if (pathname === "/api/track/open" && request.method === "GET") {
         const postId = url.searchParams.get("post_id");
-        const ref = url.searchParams.get("ref");
+        const ref    = url.searchParams.get("ref");
         if (postId && ref) {
           await env.DB.prepare(
             `UPDATE notification_log SET status='opened', opened_at=datetime('now')
              WHERE post_id=? AND recipient_ref=?`
-          )
-            .bind(postId, ref)
-            .run();
+          ).bind(postId, ref).run();
           await env.DB.prepare(
-            `UPDATE posts_cache SET popularity_score = popularity_score + 1 WHERE post_id = ?`
-          )
-            .bind(postId)
-            .run();
+            `UPDATE posts_cache SET popularity_score = popularity_score + 1 WHERE post_id=?`
+          ).bind(postId).run();
         }
         return json({ ok: true });
       }
 
-      // ---- Admin/dashboard-triggered manual post insert + notify ----
-      // (Normally the cron below catches new posts automatically; this is
-      // for re-sending or for posts published outside Blogger.)
+      // ── GET /api/admin/stats (admin dashboard data) ─────────────────
+      if (pathname === "/api/admin/stats" && request.method === "GET") {
+        if (request.headers.get("X-Admin-Key") !== env.ADMIN_API_KEY) {
+          return json({ error: "Unauthorized" }, 401);
+        }
+        const [subs, devices, posts, logs, recentLogs] = await Promise.all([
+          env.DB.prepare(`SELECT COUNT(*) as total, SUM(active) as active FROM push_subscriptions`).first(),
+          env.DB.prepare(`SELECT COUNT(*) as total, SUM(active) as active FROM device_tokens`).first(),
+          env.DB.prepare(`SELECT COUNT(*) as total, SUM(notified) as notified FROM posts_cache`).first(),
+          env.DB.prepare(`SELECT status, COUNT(*) as cnt FROM notification_log GROUP BY status`).all(),
+          env.DB.prepare(
+            `SELECT nl.post_id, nl.recipient_type, nl.status, nl.sent_at, nl.error,
+                    pc.title
+             FROM notification_log nl
+             LEFT JOIN posts_cache pc ON pc.post_id = nl.post_id
+             ORDER BY nl.id DESC LIMIT 50`
+          ).all(),
+        ]);
+        const mode = env.NOTIFICATION_MODE || "direct";
+        return json({
+          mode,
+          subscribers: subs,
+          devices,
+          posts,
+          logSummary: logs.results || [],
+          recentLogs: recentLogs.results || [],
+        });
+      }
+
+      // ── GET /api/admin/posts ────────────────────────────────────────
+      if (pathname === "/api/admin/posts" && request.method === "GET") {
+        if (request.headers.get("X-Admin-Key") !== env.ADMIN_API_KEY) {
+          return json({ error: "Unauthorized" }, 401);
+        }
+        const posts = await env.DB.prepare(
+          `SELECT post_id, title, url, featured_image, excerpt, category,
+                  published_at, notified, popularity_score
+           FROM posts_cache ORDER BY published_at DESC LIMIT 100`
+        ).all();
+        return json({ posts: posts.results || [] });
+      }
+
+      // ── GET /api/admin/subscribers ──────────────────────────────────
+      if (pathname === "/api/admin/subscribers" && request.method === "GET") {
+        if (request.headers.get("X-Admin-Key") !== env.ADMIN_API_KEY) {
+          return json({ error: "Unauthorized" }, 401);
+        }
+        const subs = await env.DB.prepare(
+          `SELECT id, subscriber_id, user_agent, active, created_at, last_seen_at,
+                  substr(endpoint,1,60) as endpoint_preview
+           FROM push_subscriptions ORDER BY id DESC LIMIT 200`
+        ).all();
+        return json({ subscribers: subs.results || [] });
+      }
+
+      // ── POST /api/admin/custom-push (send a custom notification) ────
+      if (pathname === "/api/admin/custom-push" && request.method === "POST") {
+        if (request.headers.get("X-Admin-Key") !== env.ADMIN_API_KEY) {
+          return json({ error: "Unauthorized" }, 401);
+        }
+        const { title, body, image, actionUrl, postId } = await request.json();
+        if (!title || !body) return json({ error: "title and body are required" }, 400);
+
+        const fallbackUrl = "https://www.liyogworld.com.ng/";
+        const targetUrl = actionUrl
+          ? actionUrl
+          : postId
+            ? resolveNotifUrl(env, fallbackUrl, postId)
+            : fallbackUrl;
+
+        const payload = {
+          title,
+          body,
+          image:  image  || null,
+          icon:   "https://www.liyogworld.com.ng/favicon.ico",
+          badge:  "https://www.liyogworld.com.ng/favicon.ico",
+          url:    targetUrl,
+          postId: postId || `custom-${Date.now()}`,
+        };
+
+        const { results: webSubs } = await env.DB.prepare(
+          `SELECT * FROM push_subscriptions WHERE active = 1`
+        ).all();
+
+        let sent = 0, failed = 0;
+        for (const sub of webSubs || []) {
+          try {
+            const result = await sendWebPush({ subscription: sub, payload, env });
+            if (result.ok) sent++; else failed++;
+            if (result.status === 404 || result.status === 410) {
+              await env.DB.prepare(
+                `UPDATE push_subscriptions SET active = 0 WHERE endpoint = ?`
+              ).bind(sub.endpoint).run();
+            }
+          } catch (e) { failed++; }
+        }
+        return json({ ok: true, sent, failed });
+      }
+
+      // ── POST /internal/posts/new ────────────────────────────────────
       if (pathname === "/internal/posts/new" && request.method === "POST") {
         if (request.headers.get("X-Admin-Key") !== env.ADMIN_API_KEY) {
           return json({ error: "Unauthorized" }, 401);
         }
         const post = await request.json();
+        if (!post.postId || !post.title || !post.url) {
+          return json({ error: "postId, title and url are required" }, 400);
+        }
         await env.DB.prepare(
-          `INSERT INTO posts_cache (post_id, title, url, featured_image, excerpt, category, published_at)
+          `INSERT INTO posts_cache
+             (post_id, title, url, featured_image, excerpt, category, published_at)
            VALUES (?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(post_id) DO UPDATE SET
-             title=excluded.title, url=excluded.url, featured_image=excluded.featured_image,
+             title=excluded.title, url=excluded.url,
+             featured_image=excluded.featured_image,
              excerpt=excluded.excerpt, category=excluded.category`
-        )
-          .bind(
-            post.postId,
-            post.title,
-            post.url,
-            post.featuredImage || null,
-            post.excerpt || null,
-            post.category || null,
-            post.publishedAt || new Date().toISOString()
-          )
-          .run();
-
+        ).bind(
+          post.postId, post.title, post.url,
+          post.featuredImage || null, post.excerpt || null,
+          post.category || null,
+          post.publishedAt || new Date().toISOString()
+        ).run();
         await queueNotifyForPost(env, post.postId);
         return json({ ok: true, queued: true });
       }
 
       return json({ error: "Not found" }, 404);
+
     } catch (err) {
-      console.error(err);
-      return json({ error: "Internal error", message: err.message }, 500);
+      console.error("[fetch error]", err);
+      return json({ error: "Internal server error", message: err.message }, 500);
     }
   },
 
-  // ---- Cron: poll Blogger every 10 minutes, cache + notify on new posts ----
+  // ── Cron ─────────────────────────────────────────────────────────────
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(
-      (async () => {
-        try {
-          const newPosts = await fetchNewBloggerPosts(env.DB, env.BLOG_FEED_URL);
-          for (const post of newPosts) {
-            await env.DB.prepare(
-              `INSERT OR IGNORE INTO posts_cache
-                 (post_id, title, url, featured_image, excerpt, category, published_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?)`
-            )
-              .bind(
-                post.postId,
-                post.title,
-                post.url,
-                post.featuredImage,
-                post.excerpt,
-                post.category,
-                post.publishedAt
-              )
-              .run();
-            await queueNotifyForPost(env, post.postId);
-          }
-        } catch (err) {
-          console.error("Cron poll failed:", err);
+    ctx.waitUntil((async () => {
+      try {
+        const newPosts = await fetchNewBloggerPosts(env.DB, env.BLOG_FEED_URL);
+        for (const post of newPosts) {
+          await env.DB.prepare(
+            `INSERT OR IGNORE INTO posts_cache
+               (post_id, title, url, featured_image, excerpt, category, published_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`
+          ).bind(
+            post.postId, post.title, post.url,
+            post.featuredImage, post.excerpt, post.category, post.publishedAt
+          ).run();
+          await queueNotifyForPost(env, post.postId);
+          console.log("[cron] queued:", post.postId, post.title);
         }
-      })()
-    );
+      } catch (err) {
+        console.error("[cron error]", err);
+      }
+    })());
   },
 
-  // ---- Queue consumer: fans the rich push out to every active subscriber ----
+  // ── Queue consumer ────────────────────────────────────────────────────
   async queue(batch, env, ctx) {
+    const FALLBACK_IMAGE = "https://blogger.googleusercontent.com/img/a/AVvXsEhU2MxWUfqe3_mL2XlAzymc4I4AT97rIsEO8Cxk288oU2p8leSdh2wXOdZHR3YgOkjVoKdWOqs4-w5Euy430E8VMDlB5JGdo7f_D-I7CLT-GlLHjGqbyMlrNJx4uET_9lpKPIUCQ-_m4vfwVjAqhLdSO6KQxdRUME4tdooNE0xDX7qyrr_jJP8xoaGsWyIN=s600";
+
     for (const message of batch.messages) {
       const { postId } = message.body;
+      try {
+        const post = await env.DB.prepare(
+          `SELECT * FROM posts_cache WHERE post_id = ?`
+        ).bind(postId).first();
 
-      const post = await env.DB.prepare(`SELECT * FROM posts_cache WHERE post_id = ?`)
-        .bind(postId)
-        .first();
-      if (!post) {
-        message.ack();
-        continue;
-      }
+        if (!post) { message.ack(); continue; }
 
-      const richPayload = {
-        title: post.title,
-        body: post.excerpt || "Tap to read the full story",
-        image: post.featured_image,
-        icon: "https://liyogworld.com.ng/icons/notification-icon.png",
-        badge: "https://liyogworld.com.ng/icons/badge.png",
-        url: post.url,
-        feedUrl: env.FEED_PAGE_URL,
-        postId: post.post_id,
-      };
+        const notifUrl = resolveNotifUrl(env, post.url, post.post_id);
 
-      // --- Web push fan-out ---
-      const webSubs = await env.DB.prepare(
-        `SELECT * FROM push_subscriptions WHERE active = 1`
-      ).all();
+        const richPayload = {
+          title:  post.title,
+          body:   post.excerpt || "Tap to read the full story.",
+          image:  post.featured_image || FALLBACK_IMAGE,
+          icon:   "https://www.liyogworld.com.ng/favicon.ico",
+          badge:  "https://www.liyogworld.com.ng/favicon.ico",
+          url:    notifUrl,
+          postId: post.post_id,
+        };
 
-      for (const sub of webSubs.results || []) {
-        try {
-          const result = await sendWebPush({ subscription: sub, payload: richPayload, env });
-          await env.DB.prepare(
-            `INSERT INTO notification_log (post_id, recipient_type, recipient_ref, status, sent_at, error)
-             VALUES (?, 'web', ?, ?, datetime('now'), ?)`
-          )
-            .bind(post.post_id, sub.endpoint, result.ok ? "sent" : "failed", result.body || null)
-            .run();
+        // Web push fan-out
+        const { results: webSubs } = await env.DB.prepare(
+          `SELECT * FROM push_subscriptions WHERE active = 1`
+        ).all();
 
-          // Push services return 404/410 when a subscription is dead — deactivate it.
-          if (result.status === 404 || result.status === 410) {
-            await env.DB.prepare(`UPDATE push_subscriptions SET active = 0 WHERE endpoint = ?`)
-              .bind(sub.endpoint)
-              .run();
-          }
-        } catch (err) {
-          console.error("Web push failed for", sub.endpoint, err.message);
-        }
-      }
-
-      // --- Device (FCM) fan-out — dormant until the app + secrets exist ---
-      const devices = await env.DB.prepare(`SELECT * FROM device_tokens WHERE active = 1`).all();
-      for (const device of devices.results || []) {
-        try {
-          const result = await sendFcmPush({ token: device.fcm_token, payload: richPayload, env });
-          if (!result.skipped) {
+        for (const sub of webSubs || []) {
+          try {
+            const result = await sendWebPush({ subscription: sub, payload: richPayload, env });
             await env.DB.prepare(
-              `INSERT INTO notification_log (post_id, recipient_type, recipient_ref, status, sent_at, error)
-               VALUES (?, 'device', ?, ?, datetime('now'), ?)`
-            )
-              .bind(post.post_id, device.fcm_token, result.ok ? "sent" : "failed", result.body || null)
-              .run();
+              `INSERT INTO notification_log
+                 (post_id, recipient_type, recipient_ref, status, sent_at, error)
+               VALUES (?, 'web', ?, ?, datetime('now'), ?)`
+            ).bind(
+              post.post_id, sub.endpoint,
+              result.ok ? "sent" : "failed", result.body || null
+            ).run();
+            if (result.status === 404 || result.status === 410) {
+              await env.DB.prepare(
+                `UPDATE push_subscriptions SET active = 0 WHERE endpoint = ?`
+              ).bind(sub.endpoint).run();
+            }
+          } catch (err) {
+            console.error("[queue] web push failed:", err.message);
           }
-        } catch (err) {
-          console.error("FCM push failed for", device.fcm_token, err.message);
         }
+
+        // FCM fan-out (dormant until app secrets set)
+        const { results: devices } = await env.DB.prepare(
+          `SELECT * FROM device_tokens WHERE active = 1`
+        ).all();
+        for (const device of devices || []) {
+          try {
+            const result = await sendFcmPush({ token: device.fcm_token, payload: richPayload, env });
+            if (!result.skipped) {
+              await env.DB.prepare(
+                `INSERT INTO notification_log
+                   (post_id, recipient_type, recipient_ref, status, sent_at, error)
+                 VALUES (?, 'device', ?, ?, datetime('now'), ?)`
+              ).bind(
+                post.post_id, device.fcm_token,
+                result.ok ? "sent" : "failed", result.body || null
+              ).run();
+            }
+          } catch (err) {
+            console.error("[queue] FCM failed:", err.message);
+          }
+        }
+
+        await env.DB.prepare(
+          `UPDATE posts_cache SET notified = 1 WHERE post_id = ?`
+        ).bind(post.post_id).run();
+
+        console.log(`[queue] dispatched ${post.post_id} → ${(webSubs||[]).length} web, ${(devices||[]).length} device`);
+      } catch (err) {
+        console.error("[queue] item error:", err);
       }
-
-      await env.DB.prepare(`UPDATE posts_cache SET notified = 1 WHERE post_id = ?`)
-        .bind(post.post_id)
-        .run();
-
       message.ack();
     }
   },
 };
-          
