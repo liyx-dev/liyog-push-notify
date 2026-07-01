@@ -1,5 +1,5 @@
 // ============================================================
-// Liyog World Global — Admin Dashboard Worker
+// Liyog World Global Codes — Admin Dashboard Worker
 // Serves the admin login page, the dashboard UI, and a JSON API
 // behind authentication. This is the control center for the
 // entire notification system — subscriber management, custom
